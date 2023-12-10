@@ -1,19 +1,36 @@
 import requests
 import json
 import time
-
+import regex as re
+from datetime import datetime
 
 
 def get_pull_requests(owner, repo, token, state='closed'):
     print("enter get_pull_requests")
     prs = []
+
+    headers = {
+        'Authorization': 'Bearer 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',  # Replace with your access token
+    }
+
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state={state}"
+
+    pagenum=0
+
     while url:
-        response = requests.get(url, headers={'Authorization': f'token {token}'})
+
+        if pagenum>=1:
+            break
+
+        # response = requests.get(url, headers={'Authorization': f'token {token}'})
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
             prs.extend(response.json())
             url = response.links.get('next', {}).get('url')
             print(url)
+
+            pagenum+=1
+
         else:
             # if response.status_code == 503:
             #     print(f"Failed to fetch data. Status code: {response.status_code}")
@@ -25,10 +42,14 @@ def get_pull_requests(owner, repo, token, state='closed'):
     return prs
 
 def get_review_comments(review_comments_api, token):
+    headers = {
+        'Authorization': 'Bearer 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',  # Replace with your access token
+    }
     comments = []
     # url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments"
     url=review_comments_api
-    response = requests.get(url, headers={'Authorization': f'token {token}'})
+    # response = requests.get(url, headers={'Authorization': f'token {token}'})
+    response = requests.get(url, headers=headers)
     if response.status_code == 200:
         comments.extend(response.json())
         return comments
@@ -39,10 +60,14 @@ def get_review_comments(review_comments_api, token):
 
 
 def get_pr_commits(pr_commits_api, token):
+    headers = {
+        'Authorization': 'Bearer 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',  # Replace with your access token
+    }
     commits = []
     url = pr_commits_api
     # url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/commits"
-    response = requests.get(url, headers={'Authorization': f'token {token}'})
+    # response = requests.get(url, headers={'Authorization': f'token {token}'})
+    response = requests.get(url, headers=headers)
     if response.status_code == 200:
         commits.extend(response.json())
         return commits
@@ -79,7 +104,7 @@ def get_commit_changes(url, file_path, pr):
     # print(f"commitsha url: {url}")
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     response = requests.get(url, headers=headers)
@@ -177,41 +202,196 @@ def pair_changes(changes):
 
     return paired_changes
 
+def comments_filter(comments, pr_user_id, pr):
+    # java_comments = [c for c in comments if c['path'].endswith('.java')]
+    java_comments = comments
+    comments_dict = {}
+    
+    for comment in java_comments:
+        # comment_datetime = datetime.strptime(comment["created_at"], "%Y-%m-%dT%H:%M:%SZ")
+    #### the comment without ""in_reply_to_id"" means frist可以先拿出所有第一个的comment1然后看其后有几个回复再过滤
+        if comment["user"]["id"] == pr_user_id:
+            continue
+        if "in_reply_to_id" not in comment:
+            # tp_list = []
+            # tp_list.append(comment)
+            comments_dict.update({comment["id"]: [comment]})
+        else:
+            if comment["in_reply_to_id"] in comments_dict:
+                temp = comments_dict[comment["in_reply_to_id"]]
+                temp.append(comment)
+                comments_dict.update({comment["in_reply_to_id"]: temp})
+            else:
+                raise Exception("reply comment but failed to find the comment it replied to")
 
 
+    # if pr['number']==4594:
+    #     print("Check!!")
+    # java_comments = [c for c in comments if c['path'].endswith('.java')]
+    return comments_dict
 
+
+def method_line_number_check(submit_method_declarations_iter, file_content):
+    submit_method_with_linenum_iter = []
+    for submit_i in submit_method_declarations_iter:
+        method_code = submit_i.group(0)
+        start_line_num=file_content.count("\n", 0, submit_i.start()+1)+1
+        end_line_num=file_content.count("\n", 0, submit_i.end())+1
+        submit_method_with_linenum_iter.append([method_code, start_line_num, end_line_num])
+    return submit_method_with_linenum_iter
 
 def main():
 #     owner = 'apache'  # Replace with the repository owner
 #     repo = 'eventmesh'  # Replace with the repository name
 #     token = 'your_github_token'  # Replace with your GitHub token
     html_url_list = [
-        "https://github.com/apache/eventmesh"
+        "https://github.com/dou-yuxiao/github_pr_crawl"
+        # "https://github.com/apache/eventmesh"
     ]
-    token = "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"
+    token = "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"
+
+
+    method_pattern = r"([ \t]*(?:@[\w\(\)\{\}\@=\"\,\s\/\\]+\s*)*(?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)+[@=$_\w<>\[\]\,\s]*\s*\([^)]*\)\s*(?:throws\s+[$_\w<>\[\]\,\s]*\s*)*({(?:[^{}]++|(?2))*}))"
+
+
+
+    new_label = []
     for html_url in html_url_list:
         owner, repo = html_url.split('/')[-2:]
         pull_requests = get_pull_requests(owner, repo, token)
         for pr in pull_requests:
             pr_commits_api = pr["_links"]["commits"]["href"]
             review_comments_api=pr["_links"]["review_comments"]["href"]
+            pr_user_id = pr["user"]["id"]
             # comments = get_review_comments(owner, repo, pr['number'], token)
             comments = get_review_comments(review_comments_api, token)
             pr_commits = get_pr_commits(pr_commits_api, token)
-            java_comments = [c for c in comments if c['path'].endswith('.java')]
-            for comment in java_comments:
-                commit_id = comment["original_commit_id"]
-                file_path = comment["path"]
-                diff_hunk = comment["diff_hunk"]
-                print(f"PR #{pr['number']} - File: {comment['path']}")
+            # if not pr['number']==4594:
+            #     continue
+            comments_dict = comments_filter(comments, pr_user_id, pr)
+
+            ###Check
+            for first_id, comms in comments_dict.items():
+                first_comment_commit_id = comms[0]["original_commit_id"]
+                first_comment_file_path = comms[0]["path"]
+                first_comment_diff_hunk = comms[0]["diff_hunk"]
+                for comm in comms:
+                    if comm["original_commit_id"]!=first_comment_commit_id or comm["path"]!=first_comment_file_path or comm["diff_hunk"]!=first_comment_diff_hunk:
+                        print(f"first_commrnt_commit_id: {first_comment_commit_id}")
+                        print(f"first_commrnt_file_path: {first_comment_file_path}")
+                        print(f"first_comment_diff_hunk: {first_comment_diff_hunk}")
+                        print(f"comm_commit_id: {comm['original_commit_id']}")
+                        print(f"comm_file_path: {comm['path']}")
+                        print(f"comm_diff_hunk: {comm['diff_hunk']}")
+                        print(f"pr number: {pr['number']}")
+                        print(f"first comment url: {comms[0]['url']}")
+                        raise Exception("Inconsistant in one review comment structure")
+
+
+            for first_id, comms in comments_dict.items():
+                commit_id = comms[0]["original_commit_id"]
+                file_path = comms[0]["path"]
+                diff_hunk = comms[0]["diff_hunk"]
+                file_content = download_file_after(token, owner, repo, commit_id, file_path)
+                submit_method_declarations_iter = re.finditer(method_pattern, file_content)
+                submit_method_with_linenum_iter = method_line_number_check(submit_method_declarations_iter, file_content)
+                changes = parse_diff(diff_hunk)
+                paired_changes = pair_changes(changes)
+                # submit_method_with_linenum_iter = []
+                # for submit_i in submit_method_declarations_iter:
+                #     method_code = submit_i.group(0)
+                #     start_line_num=file_content.count("\n", 0, submit_i.start()+1)+1
+                #     end_line_num=file_content.count("\n", 0, submit_i.end())+1
+                #     submit_method_with_linenum_iter.append([method_code, start_line_num, end_line_num])
+                if len(paired_changes)>0 and len(submit_method_with_linenum_iter)>0:
+                    if paired_changes[-1][0] and paired_changes[-1][1]:
+                        temp_list = []
+                        for match_pat in submit_method_with_linenum_iter:
+                            if paired_changes[-1][1]['new_line']<=match_pat[2] and paired_changes[-1][1]['new_line']>=match_pat[1] and paired_changes[-1][1]['text'] in match_pat[0]:
+                                temp_list.append(match_pat)
+                        if len(temp_list)==1:
+                            print(f"Code Method:\n{temp_list[0]}")
+                            comments_list = [comm['body'] for comm in comms]
+                            print(f"Review Comment:\n{comments_list}")
+                            new_label.append([temp_list[0], comments_list])
+                        elif len(temp_list)==0:
+                            continue
+                        else:
+                            raise Exception("Found multiple method declarations in one commit")
+                    elif (not paired_changes[-1][0]) and paired_changes[-1][1]:
+                        temp_list = []
+                        for match_pat in submit_method_with_linenum_iter:
+                            if paired_changes[-1][1]['new_line']<=match_pat[2] and paired_changes[-1][1]['new_line']>=match_pat[1] and paired_changes[-1][1]['text'] in match_pat[0]:
+                                temp_list.append(match_pat)
+                        if len(temp_list)==1:
+                            print(f"Code Method:\n{temp_list[0]}")
+                            comments_list = [comm['body'] for comm in comms]
+                            print(f"Review Comment:\n{comments_list}")
+                            new_label.append([temp_list[0], comments_list])
+                        elif len(temp_list)==0:
+                            continue
+                        else:
+                            raise Exception("Found multiple method declarations in one commit")
+                    elif paired_changes[-1][0] and (not paired_changes[-1][1]):
+                        continue
+                        # temp_list = []
+                        # for match_pat in submit_method_with_linenum_iter:
+                        #     if paired_changes[-1][0]['new_line']<=match_pat[2] and paired_changes[-1][0]['new_line']>=match_pat[1]:
+                        #         temp_list.append(match_pat)
+                        # if len(temp_list)==1:
+                        #     print(f"Code Method:\n{temp_list[0]}")
+                        #     comments_list = [comm['body'] for comm in comms]
+                        #     print(f"Review Comment:\n{comments_list}")
+                        #     new_label.append([temp_list[0], comments_list])
+                        # else:
+                        #     raise Exception("Found multiple method declarations in one commit")
+                    else:
+                        raise Exception("Error! paired_changes last ele paired_changes[-1][0] and paired_changes[-1][1] both none")
+
+
+    print(f"all end")
+
+
+            # for comment in java_comments:
+            #     commit_id = comment["original_commit_id"]
+            #     file_path = comment["path"]
+            #     diff_hunk = comment["diff_hunk"]
+            #     print(f"PR #{pr['number']} - File: {comment['path']}")
                 
-                for pr_commit in pr_commits:
-                    if pr_commit["sha"] == commit_id:
-                        # download_url = get_commit_changes(pr_commit["url"], file_path, pr)
-                        file_content = download_file_after(token, owner, repo, commit_id, file_path)
-                        print(f"Comment: {comment['body']}")
-                        print(f"diff_hunk: {diff_hunk}")
-                        print(f"file_content: {file_content}")
+            #     # for pr_commit in pr_commits:
+            #     #     if pr_commit["sha"] == commit_id:
+            #             # download_url = get_commit_changes(pr_commit["url"], file_path, pr)
+            #     file_content = download_file_after(token, owner, repo, commit_id, file_path)
+            #     print(f"Comment: {comment['body']}")
+            #     print(f"diff_hunk: {diff_hunk}")
+            #     print(f"file_content: {file_content}")
+            #     submit_method_declarations_iter = re.finditer(method_pattern, file_content)
+            #     submit_method_with_linenum_iter = []
+            #     for submit_i in submit_method_declarations_iter:
+            #         method_code = submit_i.group(0)
+            #         start_line_num=file_content.count("\n", 0, submit_i.start()+1)+1
+            #         end_line_num=file_content.count("\n", 0, submit_i.end())+1
+            #         submit_method_with_linenum_iter.append([method_code, start_line_num, end_line_num])
+
+            #     changes = parse_diff(diff_hunk)
+            #     paired_changes = pair_changes(changes)
+            #     print("Finish One")
+            #     # temp_code_comment = []
+            #     if len(paired_changes)>0 and len(submit_method_with_linenum_iter)>0:
+            #         if paired_changes[-1][0] and paired_changes[-1][1]:
+            #             temp_list = []
+            #             for match_pat in submit_method_with_linenum_iter:
+            #                 if paired_changes[-1][1]['new_line']<=match_pat[2] and paired_changes[-1][1]['new_line']>=match_pat[1] and paired_changes[-1][1]['text'] in match_pat[0]:
+            #                     temp_list.append(match_pat)
+            #             if len(temp_list)==1:
+            #                 print(f"Code Method:\n{temp_list[0]}")
+            #                 print(f"Review Comment:\n{temp_list[0]}")
+            #                 new_label.append([temp_list[0], comment['body']])
+            #             else:
+            #                 raise Exception("Found multiple method declarations in one commit")
+
+
+
 
 
 
