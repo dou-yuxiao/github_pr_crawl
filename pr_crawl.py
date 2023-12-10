@@ -3,6 +3,11 @@ import json
 import time
 import regex as re
 from datetime import datetime
+from tqdm import tqdm
+
+ERROR_LIST = []
+ALERM_LIST = []
+
 
 def read_json(file_path):
     with open(file_path,'r', encoding="utf-8") as f:
@@ -15,11 +20,11 @@ def write_json(new_data, json_path):
     print('Total write ', len(new_data))
 
 def get_pull_requests(owner, repo, token, state='closed'):
-    print("enter get_pull_requests")
+    # print("enter get_pull_requests")
     prs = []
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state={state}"
@@ -36,7 +41,7 @@ def get_pull_requests(owner, repo, token, state='closed'):
         if response.status_code == 200:
             prs.extend(response.json())
             url = response.links.get('next', {}).get('url')
-            print(url)
+            # print(url)
 
             pagenum+=1
 
@@ -52,7 +57,7 @@ def get_pull_requests(owner, repo, token, state='closed'):
 
 def get_review_comments(review_comments_api, token):
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
     comments = []
     # url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments"
@@ -70,7 +75,7 @@ def get_review_comments(review_comments_api, token):
 
 def get_pr_commits(pr_commits_api, token):
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
     commits = []
     url = pr_commits_api
@@ -113,7 +118,7 @@ def get_commit_changes(url, file_path, pr):
     # print(f"commitsha url: {url}")
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     response = requests.get(url, headers=headers)
@@ -220,7 +225,13 @@ def comments_filter(comments, pr_user_id, pr):
         # comment_datetime = datetime.strptime(comment["created_at"], "%Y-%m-%dT%H:%M:%SZ")
 
         ##记得把这个改回来取消comment
-        if comment["user"]["id"] == pr_user_id:
+        # if comment["user"]["id"] == pr_user_id:
+        #     continue
+        try:
+            if comment["user"]["id"] == pr_user_id:
+                continue
+        except:
+            ALERM_LIST.append(["comment['user']['id'] failed, maybe deleted user",comment,pr])
             continue
         if "in_reply_to_id" not in comment:
             # tp_list = []
@@ -232,7 +243,9 @@ def comments_filter(comments, pr_user_id, pr):
                 temp.append(comment)
                 comments_dict.update({comment["in_reply_to_id"]: temp})
             else:
-                raise Exception("reply comment but failed to find the comment it replied to")
+                print("Comment starts by the commit author")
+                ALERM_LIST.append(["failed to find the comment it replied to. maybe start by pr author or deleted user",comment,pr])
+                # raise Exception("reply comment but failed to find the comment it replied to")
 
 
     # if pr['number']==4594:
@@ -258,7 +271,8 @@ def main():
     #     "https://github.com/dou-yuxiao/github_pr_crawl"
     #     # "https://github.com/apache/eventmesh"
     # ]
-    token = "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"
+    token = "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"
+    
     
 
     html_url_list = read_json("repo_url_list.json")
@@ -270,7 +284,7 @@ def main():
 
 
     new_label = []
-    for html_url in html_url_list:
+    for html_url in tqdm(html_url_list):
         owner, repo = html_url.split('/')[-2:]
         pull_requests = get_pull_requests(owner, repo, token)
         pull_requests = get_pull_requests(owner, repo, token, "open")
@@ -362,8 +376,9 @@ def main():
                         #     raise Exception("Found multiple method declarations in one commit")
                     else:
                         raise Exception("Error! paired_changes last ele paired_changes[-1][0] and paired_changes[-1][1] both none")
-
+        print(f"new_label length: ", len(new_label))
     write_json(new_label, "code_comments.json")
+    write_json(ALERM_LIST, "error_list.json")
     print(f"all end")
 
 
