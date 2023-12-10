@@ -4,13 +4,22 @@ import time
 import regex as re
 from datetime import datetime
 
+def read_json(file_path):
+    with open(file_path,'r', encoding="utf-8") as f:
+        label = json.load(f)
+        return label
+    
+def write_json(new_data, json_path):
+    with open(json_path,'w+', encoding="utf-8") as f:
+        json.dump(new_data, f, ensure_ascii=False)     
+    print('Total write ', len(new_data))
 
 def get_pull_requests(owner, repo, token, state='closed'):
     print("enter get_pull_requests")
     prs = []
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state={state}"
@@ -43,7 +52,7 @@ def get_pull_requests(owner, repo, token, state='closed'):
 
 def get_review_comments(review_comments_api, token):
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
     comments = []
     # url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments"
@@ -61,7 +70,7 @@ def get_review_comments(review_comments_api, token):
 
 def get_pr_commits(pr_commits_api, token):
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
     commits = []
     url = pr_commits_api
@@ -104,7 +113,7 @@ def get_commit_changes(url, file_path, pr):
     # print(f"commitsha url: {url}")
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     response = requests.get(url, headers=headers)
@@ -211,8 +220,8 @@ def comments_filter(comments, pr_user_id, pr):
         # comment_datetime = datetime.strptime(comment["created_at"], "%Y-%m-%dT%H:%M:%SZ")
 
         ##记得把这个改回来取消comment
-        # if comment["user"]["id"] == pr_user_id:
-        #     continue
+        if comment["user"]["id"] == pr_user_id:
+            continue
         if "in_reply_to_id" not in comment:
             # tp_list = []
             # tp_list.append(comment)
@@ -245,11 +254,14 @@ def main():
 #     owner = 'apache'  # Replace with the repository owner
 #     repo = 'eventmesh'  # Replace with the repository name
 #     token = 'your_github_token'  # Replace with your GitHub token
-    html_url_list = [
-        "https://github.com/dou-yuxiao/github_pr_crawl"
-        # "https://github.com/apache/eventmesh"
-    ]
-    token = "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"
+    # html_url_list = [
+    #     "https://github.com/dou-yuxiao/github_pr_crawl"
+    #     # "https://github.com/apache/eventmesh"
+    # ]
+    token = "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"
+    
+
+    html_url_list = read_json("repo_url_list.json")
     
 
 
@@ -313,10 +325,10 @@ def main():
                             if paired_changes[-1][1]['new_line']<=match_pat[2] and paired_changes[-1][1]['new_line']>=match_pat[1] and paired_changes[-1][1]['text'] in match_pat[0]:
                                 temp_list.append(match_pat)
                         if len(temp_list)==1:
-                            print(f"Code Method:\n{temp_list[0]}")
+                            # print(f"Code Method:\n{temp_list[0]}")
                             comments_list = [comm['body'] for comm in comms]
-                            print(f"Review Comment:\n{comments_list}")
-                            new_label.append([temp_list[0], comments_list])
+                            # print(f"Review Comment:\n{comments_list}")
+                            new_label.append([temp_list[0][0], comments_list])
                         elif len(temp_list)==0:
                             continue
                         else:
@@ -327,10 +339,10 @@ def main():
                             if paired_changes[-1][1]['new_line']<=match_pat[2] and paired_changes[-1][1]['new_line']>=match_pat[1] and paired_changes[-1][1]['text'] in match_pat[0]:
                                 temp_list.append(match_pat)
                         if len(temp_list)==1:
-                            print(f"Code Method:\n{temp_list[0]}")
+                            # print(f"Code Method:\n{temp_list[0]}")
                             comments_list = [comm['body'] for comm in comms]
-                            print(f"Review Comment:\n{comments_list}")
-                            new_label.append([temp_list[0], comments_list])
+                            # print(f"Review Comment:\n{comments_list}")
+                            new_label.append([temp_list[0][0], comments_list])
                         elif len(temp_list)==0:
                             continue
                         else:
@@ -351,7 +363,7 @@ def main():
                     else:
                         raise Exception("Error! paired_changes last ele paired_changes[-1][0] and paired_changes[-1][1] both none")
 
-
+    write_json(new_label, "code_comments.json")
     print(f"all end")
 
 
