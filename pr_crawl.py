@@ -10,7 +10,7 @@ def get_pull_requests(owner, repo, token, state='closed'):
     prs = []
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state={state}"
@@ -43,7 +43,7 @@ def get_pull_requests(owner, repo, token, state='closed'):
 
 def get_review_comments(review_comments_api, token):
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
     comments = []
     # url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments"
@@ -61,7 +61,7 @@ def get_review_comments(review_comments_api, token):
 
 def get_pr_commits(pr_commits_api, token):
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
     commits = []
     url = pr_commits_api
@@ -104,7 +104,7 @@ def get_commit_changes(url, file_path, pr):
     # print(f"commitsha url: {url}")
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     response = requests.get(url, headers=headers)
@@ -203,15 +203,16 @@ def pair_changes(changes):
     return paired_changes
 
 def comments_filter(comments, pr_user_id, pr):
-    # java_comments = [c for c in comments if c['path'].endswith('.java')]
-    java_comments = comments
+    java_comments = [c for c in comments if c['path'].endswith('.java')]
+    # java_comments = comments
     comments_dict = {}
     
     for comment in java_comments:
         # comment_datetime = datetime.strptime(comment["created_at"], "%Y-%m-%dT%H:%M:%SZ")
-    #### the comment without ""in_reply_to_id"" means frist可以先拿出所有第一个的comment1然后看其后有几个回复再过滤
-        if comment["user"]["id"] == pr_user_id:
-            continue
+
+        ##记得把这个改回来取消comment
+        # if comment["user"]["id"] == pr_user_id:
+        #     continue
         if "in_reply_to_id" not in comment:
             # tp_list = []
             # tp_list.append(comment)
@@ -248,7 +249,8 @@ def main():
         "https://github.com/dou-yuxiao/github_pr_crawl"
         # "https://github.com/apache/eventmesh"
     ]
-    token = "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"
+    token = "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"
+    
 
 
     method_pattern = r"([ \t]*(?:@[\w\(\)\{\}\@=\"\,\s\/\\]+\s*)*(?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)+[@=$_\w<>\[\]\,\s]*\s*\([^)]*\)\s*(?:throws\s+[$_\w<>\[\]\,\s]*\s*)*({(?:[^{}]++|(?2))*}))"
@@ -259,6 +261,7 @@ def main():
     for html_url in html_url_list:
         owner, repo = html_url.split('/')[-2:]
         pull_requests = get_pull_requests(owner, repo, token)
+        pull_requests = get_pull_requests(owner, repo, token, "open")
         for pr in pull_requests:
             pr_commits_api = pr["_links"]["commits"]["href"]
             review_comments_api=pr["_links"]["review_comments"]["href"]
