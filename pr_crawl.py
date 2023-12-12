@@ -4,8 +4,9 @@ import time
 import regex as re
 from datetime import datetime
 from tqdm import tqdm
+import os
 
-ERROR_LIST = []
+# ERROR_LIST = []
 ALERM_LIST = []
 
 
@@ -24,7 +25,7 @@ def get_pull_requests(owner, repo, token, state='closed'):
     prs = []
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state={state}"
@@ -46,18 +47,18 @@ def get_pull_requests(owner, repo, token, state='closed'):
             pagenum+=1
 
         else:
-            # if response.status_code == 503:
-            #     print(f"Failed to fetch data. Status code: {response.status_code}")
-            #     continue
-            
-            print(f"Failed to fetch data. Status code: {response.status_code}, url: {url}")
-            time.sleep(20)
-            continue
+            if response.status_code == 404:
+                print(f"Failed to fetch data. Status code: {response.status_code}")
+                break
+            else:
+                print(f"Failed to fetch data. Status code: {response.status_code}, url: {url}")
+                time.sleep(360)
+                continue
     return prs
 
 def get_review_comments(review_comments_api, token):
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
     comments = []
     # url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments"
@@ -70,12 +71,13 @@ def get_review_comments(review_comments_api, token):
     else:
         print(f"Failed to fetch review comments for PR {url}")
         print(f"Failed to fetch data. Status code: {response.status_code}")
+        time.sleep(360)
         return get_review_comments(url, token)
 
 
 def get_pr_commits(pr_commits_api, token):
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
     commits = []
     url = pr_commits_api
@@ -88,6 +90,7 @@ def get_pr_commits(pr_commits_api, token):
     else:
         print(f"Failed to fetch pr commits for PR {url}")
         print(f"Failed to fetch data. Status code: {response.status_code}")
+        time.sleep(360)
         return get_pr_commits(url, token)
 
 
@@ -105,11 +108,14 @@ def download_file_after(access_token, owner, repo, sha, file_path):
     else:
         if response.status_code == 503:
             print(f"Failed to fetch data. Status code: {response.status_code}")
-            return download_file_after(access_token, download_url)
+            time.sleep(360)
+            return download_file_after(access_token, owner, repo, sha, file_path)
+        elif response.status_code == 404:
+            return False
         else:
             print(f"Failed to fetch data. Status code: {response.status_code}")
-            time.sleep(50)
-            return download_file_after(access_token, download_url)
+            time.sleep(360)
+            return download_file_after(access_token, owner, repo, sha, file_path)
 
 
 
@@ -118,7 +124,7 @@ def get_commit_changes(url, file_path, pr):
     # print(f"commitsha url: {url}")
 
     headers = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': 'Bearer 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',  # Replace with your access token
     }
 
     response = requests.get(url, headers=headers)
@@ -146,7 +152,7 @@ def get_commit_changes(url, file_path, pr):
             raise Exception("404 ERROR")
         else:
             print(f"Failed to fetch data. Status code: {response.status_code}")
-            time.sleep(60)
+            time.sleep(360)
             return get_commit_changes(url, file_path, pr)
         
 
@@ -263,6 +269,36 @@ def method_line_number_check(submit_method_declarations_iter, file_content):
         submit_method_with_linenum_iter.append([method_code, start_line_num, end_line_num])
     return submit_method_with_linenum_iter
 
+def update_data(old_label, java_repos):
+    new_label = []
+    new_label.extend(old_label)
+    for java_repo in java_repos:
+        if java_repo in old_label:
+            continue
+        else:
+            new_label.append(java_repo)
+    return new_label
+
+def record_data_info(new_label, used_pr, alerm_list, used_pr_json, data_json_path, alerm_json):
+    if os.path.exists(data_json_path):
+        old_data = read_json(data_json_path)
+        update_new_label = update_data(old_data, new_label)
+    else:
+        update_new_label = update_data([], new_label)
+    
+    if os.path.exists(alerm_json):
+        old_alerm = read_json(data_json_path)
+        alerm_list.extend(old_alerm)
+
+    print(f"write update_new_label")
+    write_json(update_new_label, data_json_path)
+    print(f"write used_pr")
+    write_json(used_pr, used_pr_json)
+    print(f"write alerm_list")
+    write_json(alerm_list, alerm_json)
+
+
+
 def main():
 #     owner = 'apache'  # Replace with the repository owner
 #     repo = 'eventmesh'  # Replace with the repository name
@@ -271,24 +307,38 @@ def main():
     #     "https://github.com/dou-yuxiao/github_pr_crawl"
     #     # "https://github.com/apache/eventmesh"
     # ]
-    token = "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"
+    token = "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"
     
     
+    result_folder = "result"
+    used_pr_json = os.path.join(result_folder, "used_pr.json")
+    data_json_path = os.path.join(result_folder, "code_comments.json")
+    alerm_json = os.path.join(result_folder, "alerm_list.json")
+    if not os.path.exists(result_folder):
+        os.makedirs(result_folder)
+    if os.path.exists(used_pr_json):
+        used_pr = read_json(used_pr_json)
+    else:
+        used_pr = []
 
     html_url_list = read_json("repo_url_list.json")
     
-
-
     method_pattern = r"([ \t]*(?:@[\w\(\)\{\}\@=\"\,\s\/\\]+\s*)*(?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)+[@=$_\w<>\[\]\,\s]*\s*\([^)]*\)\s*(?:throws\s+[$_\w<>\[\]\,\s]*\s*)*({(?:[^{}]++|(?2))*}))"
 
 
 
     new_label = []
+    url_num=0
     for html_url in tqdm(html_url_list):
+        url_num+=1
         owner, repo = html_url.split('/')[-2:]
         pull_requests = get_pull_requests(owner, repo, token)
-        pull_requests = get_pull_requests(owner, repo, token, "open")
+        # pull_requests = get_pull_requests(owner, repo, token, "open")
         for pr in pull_requests:
+
+            if [pr["url"], pr["id"]] in used_pr:
+                continue
+
             pr_commits_api = pr["_links"]["commits"]["href"]
             review_comments_api=pr["_links"]["review_comments"]["href"]
             pr_user_id = pr["user"]["id"]
@@ -322,6 +372,8 @@ def main():
                 file_path = comms[0]["path"]
                 diff_hunk = comms[0]["diff_hunk"]
                 file_content = download_file_after(token, owner, repo, commit_id, file_path)
+                if file_content == False:
+                    continue
                 submit_method_declarations_iter = re.finditer(method_pattern, file_content)
                 submit_method_with_linenum_iter = method_line_number_check(submit_method_declarations_iter, file_content)
                 changes = parse_diff(diff_hunk)
@@ -376,9 +428,27 @@ def main():
                         #     raise Exception("Found multiple method declarations in one commit")
                     else:
                         raise Exception("Error! paired_changes last ele paired_changes[-1][0] and paired_changes[-1][1] both none")
+            
+            used_pr.append([pr["url"], pr["id"]])
         print(f"new_label length: ", len(new_label))
-    write_json(new_label, "code_comments.json")
-    write_json(ALERM_LIST, "error_list.json")
+        if url_num%10==0:
+            record_data_info(new_label, used_pr, ALERM_LIST, used_pr_json, data_json_path, alerm_json)
+            new_label.clear()
+            ALERM_LIST.clear()
+
+        
+
+    record_data_info(new_label, used_pr, ALERM_LIST, used_pr_json, data_json_path, alerm_json)
+
+    # json_path = "code_comments.json"
+    # if os.path.exists(json_path):
+    #     old_data = read_json(json_path)
+    #     update_new_label = update_data(old_data, new_label)
+    # else:
+    #     update_new_label = update_data([], java_repos)
+    # write_json(update_new_label, "code_comments.json")
+    # write_json(used_pr, "used_pr.json")
+    # write_json(ALERM_LIST, "error_list.json")
     print(f"all end")
 
 

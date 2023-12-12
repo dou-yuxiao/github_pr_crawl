@@ -29,11 +29,12 @@ def get_next_page_url(link_header):
 
 # Personal Access Token - Replace 'YOUR_TOKEN' with your GitHub token
 headers = {
-    'Authorization': 'token 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',
+    'Authorization': 'token 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',
+    
     'Accept': 'application/vnd.github.v3+json',
 }
 
-def get_java_repos_with_closed_prs(min_closed_prs, page=30):
+def get_java_repos_with_closed_prs(min_closed_prs, page=20):
     repos_with_enough_prs = []
 
     # Search for Java repositories
@@ -118,12 +119,14 @@ def update_data(old_label, java_repos):
 
 
 # Example usage
-json_path = "repo_url_list.json"
-java_repos = get_java_repos_with_closed_prs(50)
-# old_label = []
-if os.path.exists(json_path):
-    old_data = read_json(json_path)
-    new_label = update_data(old_data, java_repos)
-else:
-    new_label = update_data([], java_repos)
-write_json(new_label, "repo_url_list.json")
+while True:
+
+    json_path = "repo_url_list.json"
+    java_repos = get_java_repos_with_closed_prs(50)
+    # old_label = []
+    if os.path.exists(json_path):
+        old_data = read_json(json_path)
+        new_label = update_data(old_data, java_repos)
+    else:
+        new_label = update_data([], java_repos)
+    write_json(new_label, "repo_url_list.json")
