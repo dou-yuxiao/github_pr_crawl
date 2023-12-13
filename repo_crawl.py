@@ -6,7 +6,7 @@ import os
 PR_NUMBER = 50
 JSON_PATH = "repo_url_list.json"
 # Personal Access Token - Replace 'YOUR_TOKEN' with your GitHub token
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "Your Token"
 HEADERS = {
     'Authorization': f'token {GITHUB_TOKEN}',
     

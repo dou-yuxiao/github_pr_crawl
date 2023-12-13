@@ -9,7 +9,7 @@ import os
 # ERROR_LIST = []
 REPO_URL_LIST_JSON = "repo_url_list.json"
 ALERM_LIST = []
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "Your Token"
 HEADERS = {
         'Authorization': F'Bearer {GITHUB_TOKEN}',  # Replace with your access token
     }
