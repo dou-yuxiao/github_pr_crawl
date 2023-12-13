@@ -7,11 +7,11 @@ from tqdm import tqdm
 import os
 
 # ERROR_LIST = []
-# TOKEN = "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" # Replace with your GitHub token
 REPO_URL_LIST_JSON = "repo_url_list.json"
 ALERM_LIST = []
+GITHUB_TOKEN = "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"
 HEADERS = {
-        'Authorization': 'Bearer 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',  # Replace with your access token
+        'Authorization': F'Bearer {GITHUB_TOKEN}',  # Replace with your access token
     }
 
 def read_json(file_path):

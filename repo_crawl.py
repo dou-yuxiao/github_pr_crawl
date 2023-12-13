@@ -5,6 +5,13 @@ import os
 
 PR_NUMBER = 50
 JSON_PATH = "repo_url_list.json"
+# Personal Access Token - Replace 'YOUR_TOKEN' with your GitHub token
+GITHUB_TOKEN = "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"
+HEADERS = {
+    'Authorization': f'token {GITHUB_TOKEN}',
+    
+    'Accept': 'application/vnd.github.v3+json',
+}
 
 
 
@@ -30,15 +37,6 @@ def get_next_page_url(link_header):
             return url.strip('<>')
     return None
 
-
-
-# Personal Access Token - Replace 'YOUR_TOKEN' with your GitHub token
-headers = {
-    'Authorization': 'token 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',
-    
-    'Accept': 'application/vnd.github.v3+json',
-}
-
 def get_java_repos_with_closed_prs(min_closed_prs, page=20):
     repos_with_enough_prs = []
 
@@ -56,7 +54,7 @@ def get_java_repos_with_closed_prs(min_closed_prs, page=20):
         print(number)
         if number>page:
             break
-        response = requests.get(search_url, headers=headers, params=query_params)
+        response = requests.get(search_url, headers=HEADERS, params=query_params)
         if response.status_code == 200:
             java_repos = response.json()['items']
             for repo in java_repos:
@@ -66,7 +64,7 @@ def get_java_repos_with_closed_prs(min_closed_prs, page=20):
                 pr_params = {'state': 'closed', 'per_page': 1}
                 
 
-                total_closed_prs = extract_last_page_number(prs_url, headers, pr_params)
+                total_closed_prs = extract_last_page_number(prs_url, pr_params)
                 
 
                 if total_closed_prs >= min_closed_prs:
@@ -87,9 +85,9 @@ def get_java_repos_with_closed_prs(min_closed_prs, page=20):
 
     return repos_with_enough_prs
 
-def extract_last_page_number(prs_url, headers, pr_params):
+def extract_last_page_number(prs_url, pr_params):
     # Extract the last page number from the 'Link' header
-    pr_response = requests.get(prs_url, headers=headers, params=pr_params)
+    pr_response = requests.get(prs_url, headers=HEADERS, params=pr_params)
     if pr_response.status_code == 200:
         if 'Link' in pr_response.headers:
             link_header=pr_response.headers['Link']
@@ -105,7 +103,7 @@ def extract_last_page_number(prs_url, headers, pr_params):
     else:
         print(f"Failed to fetch data. Status code: {pr_response.status_code}")
         time.sleep(10)
-        return extract_last_page_number(prs_url, headers, pr_params)
+        return extract_last_page_number(prs_url, pr_params)
 
 
 def update_data(old_label, java_repos):
