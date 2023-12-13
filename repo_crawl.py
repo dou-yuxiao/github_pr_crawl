@@ -3,6 +3,11 @@ import json
 import time
 import os
 
+PR_NUMBER = 50
+JSON_PATH = "repo_url_list.json"
+
+
+
 def read_json(file_path):
     with open(file_path,'r', encoding="utf-8") as f:
         label = json.load(f)
@@ -63,10 +68,6 @@ def get_java_repos_with_closed_prs(min_closed_prs, page=20):
 
                 total_closed_prs = extract_last_page_number(prs_url, headers, pr_params)
                 
-                # pr_response = requests.get(prs_url, headers=headers, params=pr_params)
-                # if pr_response.status_code == 200 and 'Link' in pr_response.headers:
-                #     total_closed_prs = extract_last_page_number(pr_response.headers['Link'])
-                    # total_closed_prs = extract_last_page_number(pr_response.links)
 
                 if total_closed_prs >= min_closed_prs:
                     repos_with_enough_prs.append(repo['html_url'])
@@ -119,14 +120,17 @@ def update_data(old_label, java_repos):
 
 
 # Example usage
-while True:
+def main():
+    while True:
+        java_repos = get_java_repos_with_closed_prs(PR_NUMBER)
+        # old_label = []
+        if os.path.exists(JSON_PATH):
+            old_data = read_json(JSON_PATH)
+            new_label = update_data(old_data, java_repos)
+        else:
+            new_label = update_data([], java_repos)
+        write_json(new_label, JSON_PATH)
 
-    json_path = "repo_url_list.json"
-    java_repos = get_java_repos_with_closed_prs(50)
-    # old_label = []
-    if os.path.exists(json_path):
-        old_data = read_json(json_path)
-        new_label = update_data(old_data, java_repos)
-    else:
-        new_label = update_data([], java_repos)
-    write_json(new_label, "repo_url_list.json")
+
+if __name__ == "__main__":
+    main()
